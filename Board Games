@@ -1,25 +1,14 @@
-from django.db import models
 from django.contrib.auth.models import User
-# Create your models here.
-class book(models.Model):
-    name = models.CharField(max_length = 200)
-    authors = models.JSONField(null=True, blank=True, default=list)
-    year_published = models.IntegerField()
-    date_added = models.DateTimeField(auto_now_add = True)
-    date_modified = models.DateTimeField(auto_now_add = True)
-    owner = models.ForeignKey(User,on_delete = models.CASCADE)
+from django.db import models
+from django.utils import timezone
+
+class Order(models.Model):
+    orderer = models.ForeignKey(User, related_name='orders', on_delete=models.CASCADE)
+    owner = models.ForeignKey(User, related_name='owned_orders', on_delete=models.CASCADE)
+    return_date = models.DateField(default=timezone.now)
+    boardgame_id = models.IntegerField()
 
     def __str__(self):
-        return self.name
+        return f"Order by {self.orderer} for BoardGame ID {self.boardgame_id}"
 
-class Review(models.Model):
-    my_review = models.TextField()
-    stars = models.IntegerField()
-    unfinished = models.BooleanField()
-    date_added = models.DateTimeField(auto_now_add = True)
-    date_modified = models.DateTimeField(auto_now = True)
-    book = models.ForeignKey(book, on_delete = models.CASCADE)
-
-    def __str__(self):
-        return f"{self.my_review[:50]}"
     
