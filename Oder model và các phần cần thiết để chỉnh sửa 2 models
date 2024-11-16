@@ -1,0 +1,76 @@
+### Model cho Order
+from django.contrib.auth.models import User
+from django.db import models
+
+class Order(models.Model):
+    orderer = models.ForeignKey(User, related_name='orders', on_delete=models.CASCADE)  
+    # Liên kết với người dùng là người đặt hàng (người mượn board game)
+    owner = models.ForeignKey(User, related_name='owned_orders', on_delete=models.CASCADE)  
+    # Liên kết với người dùng là chủ sở hữu board game (người cho mượn)
+    boardgame = models.ForeignKey(BoardGame, related_name='orders', on_delete=models.CASCADE)  
+    # Liên kết với BoardGame mà đơn hàng này liên quan đến
+    order_date = models.DateField(auto_now_add=True)  # Ngày đặt hàng, tự động lấy ngày hiện tại
+    return_date = models.DateField()  # Ngày trả lại board game
+
+    def __str__(self):
+        return f"Order by {self.orderer} for {self.boardgame.name}"  
+        # Trả về chuỗi mô tả đơn hàng khi gọi đối tượng
+
+
+### View để chỉnh sửa Board Game
+
+from django.shortcuts import get_object_or_404
+from django.urls import reverse_lazy
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.utils.decorators import method_decorator
+from django.views.generic.edit import UpdateView
+from .models import BoardGame
+# Sử dụng class-based view cho việc chỉnh sửa BoardGame
+@method_decorator(login_required, name='dispatch')
+# Đảm bảo rằng người dùng phải đăng nhập trước khi có thể chỉnh sửa
+@method_decorator(user_passes_test(lambda u: u.is_authenticated), name='dispatch')
+# Đảm bảo người dùng đã xác thực (authenticated)
+class BoardGameUpdateView(UpdateView):
+    model = BoardGame  # Xác định model là BoardGame
+    fields = ['name', 'description', 'year_published']  # Các trường được phép chỉnh sửa
+    template_name = 'boardgame_edit.html'  # Tên file template HTML cho form chỉnh sửa
+
+    def get_queryset(self):
+        # Chỉ lấy danh sách board game mà người dùng hiện tại là owner
+        return BoardGame.objects.filter(owner=self.request.user)
+
+    def get_success_url(self):
+        # Sau khi chỉnh sửa thành công, chuyển hướng người dùng tới trang chi tiết của board game
+        return reverse_lazy('boardgame_detail', kwargs={'pk': self.object.pk})
+
+### View để chỉnh sửa Oder 
+
+# Sử dụng class-based view cho việc chỉnh sửa Order
+@method_decorator(login_required, name='dispatch')
+# Người dùng phải đăng nhập để chỉnh sửa order
+@method_decorator(user_passes_test(lambda u: u.is_authenticated), name='dispatch')
+# Đảm bảo người dùng đã xác thực
+class OrderUpdateView(UpdateView):
+    model = Order  # Xác định model là Order
+    fields = ['return_date']  # Cho phép người dùng chỉnh sửa ngày trả lại
+    template_name = 'order_edit.html'  # Tên file template HTML cho form chỉnh sửa
+
+    def get_queryset(self):
+        # Chỉ cho phép người dùng hiện tại là người đặt hàng hoặc chủ sở hữu chỉnh sửa đơn hàng
+        return Order.objects.filter(orderer=self.request.user) | Order.objects.filter(owner=self.request.user)
+
+    def get_success_url(self):
+        # Sau khi chỉnh sửa thành công, chuyển hướng người dùng tới trang chi tiết của đơn hàng
+        return reverse_lazy('order_detail', kwargs={'pk': self.object.pk})
+
+### URL cho Oder 
+
+from django.urls import path
+from .views import OrderUpdateView
+# Các URL patterns để kết nối với các view chỉnh sửa
+urlpatterns = [    
+    # URL cho chỉnh sửa Order, với <int:pk> là ID của Order
+    path('order/<int:pk>/edit/', OrderUpdateView.as_view(), name='order_edit'),
+]
+
+    
